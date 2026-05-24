@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WayPoint — Traveller Companion</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #0f1117;
+    --paper: #f8f5ef;
+    --sand: #e8e0d0;
+    --moss: #2d5a4e;
+    --moss-light: #3d7a68;
+    --amber: #d4850a;
+    --amber-light: #f0a830;
+    --danger: #c0392b;
+    --danger-light: #e74c3c;
+    --sky: #2980b9;
+    --muted: #7a7468;
+    --card: #ffffff;
+    --shadow: 0 4px 24px rgba(15,17,23,0.10);
+    --shadow-sm: 0 2px 8px rgba(15,17,23,0.07);
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+
+  html, body {
+    height: 100%;
+    font-family: 'DM Sans', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    overflow: hidden;
+  }
+
+  /* ---- LAYOUT ---- */
+  #app {
+    display: grid;
+    grid-template-rows: 64px 1fr;
+    grid-template-columns: 360px 1fr;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ---- TOPBAR ---- */
+  #topbar {
+    grid-column: 1 / -1;
+    background: var(--ink);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 16px;
+    z-index: 10;
+  }
+  .logo {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.5rem;
+    color: var(--paper);
+    letter-spacing: -0.02em;
+  }
+  .logo span { color: var(--amber-light); font-style: italic; }
+  .topbar-status {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .pulse-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: #2ecc71;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50% { opacity:0.6; transform:scale(1.3); }
+  }
+  .status-label { color: var(--sand); font-size: 0.8rem; font-weight: 500; }
+  .danger-banner {
+    background: var(--danger);
+    color: white;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    animation: flashBanner 1s ease-in-out infinite alternate;
+  }
+  .danger-banner.show { display: flex; }
+  @keyframes flashBanner {
+    from { background: var(--danger); }
+    to { background: var(--danger-light); }
+  }
+
+  /* ---- SIDEBAR ---- */
+  #sidebar {
+    background: var(--paper);
+    border-right: 1.5px solid var(--sand);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    z-index: 5;
+  }
+
+  /* ---- LOCATION CARD ---- */
+  .loc-card {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 20px 22px 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .loc-card::before {
+    content: '';
+    position: absolute;
+    top: -30px; right: -30px;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+  .loc-label { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .loc-name { font-family: 'DM Serif Display', serif; font-size: 1.25rem; margin-bottom: 2px; }
+  .loc-coords { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; margin-bottom: 10px; }
+  .loc-meta { display: flex; gap: 10px; flex-wrap: wrap; }
+  .loc-badge {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 0.73rem;
+    color: var(--sand);
+  }
+
+  /* ---- DANGER ALERT ---- */
+  .danger-alert {
+    margin: 12px;
+    background: #fff0ef;
+    border: 1.5px solid var(--danger-light);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    display: none;
+    animation: slideIn 0.3s ease;
+  }
+  .danger-alert.show { display: block; }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .danger-alert-title {
+    font-weight: 600;
+    color: var(--danger);
+    font-size: 0.88rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .danger-alert-body { font-size: 0.8rem; color: #7a2020; line-height: 1.5; }
+
+  /* ---- SECTION ---- */
+  .section {
+    padding: 14px 16px 6px;
+  }
+  .section-title {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--sand);
+  }
+
+  /* ---- SUGGESTION CARDS ---- */
+  .suggestion-list { display: flex; flex-direction: column; gap: 8px; padding: 0 16px 14px; }
+  .sug-card {
+    background: var(--card);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    box-shadow: var(--shadow-sm);
+    border: 1.5px solid var(--sand);
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .sug-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+    border-color: var(--moss-light);
+  }
+  .sug-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+  .sug-icon.landmark { background: #eaf4f1; }
+  .sug-icon.food { background: #fef6e4; }
+  .sug-icon.safety { background: #fef0f0; }
+  .sug-icon.transport { background: #eaf0fa; }
+  .sug-info { flex: 1; min-width: 0; }
+  .sug-name { font-weight: 600; font-size: 0.87rem; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sug-desc { font-size: 0.76rem; color: var(--muted); line-height: 1.4; }
+  .sug-dist { font-size: 0.72rem; font-weight: 600; color: var(--moss); margin-top: 4px; }
+  .sug-rating { font-size: 0.72rem; color: var(--amber); margin-top: 2px; }
+
+  /* Loading skeleton */
+  .skeleton {
+    background: linear-gradient(90deg, var(--sand) 25%, #ede8e0 50%, var(--sand) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease infinite;
+    border-radius: 6px;
+  }
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+  .sug-card.loading .sug-icon { background: var(--sand); }
+  .sug-card.loading .sug-name { height: 12px; width: 65%; margin-bottom: 6px; }
+  .sug-card.loading .sug-desc { height: 10px; width: 90%; margin-bottom: 4px; }
+  .sug-card.loading .sug-dist { height: 10px; width: 40%; }
+
+  /* ---- CHAT ---- */
+  .chat-section { padding: 0 16px 10px; flex: 1; }
+  .chat-input-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+    padding: 0 16px 16px;
+  }
+  #chatInput {
+    flex: 1;
+    background: var(--card);
+    border: 1.5px solid var(--sand);
+    border-radius: 24px;
+    padding: 9px 16px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  #chatInput:focus { border-color: var(--moss-light); }
+  #chatInput::placeholder { color: var(--muted); }
+  #chatSend {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--moss);
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: white;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    transition: background 0.2s, transform 0.15s;
+  }
+  #chatSend:hover { background: var(--moss-light); transform: scale(1.05); }
+  #chatSend:disabled { background: var(--sand); cursor: not-allowed; transform: none; }
+
+  .chat-bubble {
+    padding: 9px 13px;
+    border-radius: 14px;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    max-width: 100%;
+    margin-bottom: 8px;
+    animation: bubbleIn 0.25s ease;
+  }
+  @keyframes bubbleIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .chat-bubble.user {
+    background: var(--ink);
+    color: var(--paper);
+    border-bottom-right-radius: 4px;
+    margin-left: 20px;
+  }
+  .chat-bubble.ai {
+    background: var(--card);
+    border: 1.5px solid var(--sand);
+    color: var(--ink);
+    border-bottom-left-radius: 4px;
+  }
+  .chat-bubble.typing { color: var(--muted); font-style: italic; }
+  #chatMessages { max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; }
+
+  /* ---- MAP AREA ---- */
+  #map-area {
+    position: relative;
+    overflow: hidden;
+    background: #d8e8e0;
+  }
+  #map { width: 100%; height: 100%; }
+
+  /* Map overlay controls */
+  .map-overlay {
+    position: absolute;
+    top: 16px; right: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 10;
+  }
+  .map-btn {
+    width: 40px; height: 40px;
+    background: white;
+    border: none;
+    border-radius: 10px;
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+    transition: background 0.15s, transform 0.15s;
+  }
+  .map-btn:hover { background: var(--paper); transform: scale(1.05); }
+  .map-btn.active { background: var(--moss); color: white; }
+
+  /* Map info pill */
+  .map-info-pill {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: var(--paper);
+    padding: 9px 20px;
+    border-radius: 24px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    box-shadow: var(--shadow);
+    white-space: nowrap;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s;
+  }
+  .map-info-pill.danger-mode {
+    background: var(--danger);
+    animation: pillFlash 1.5s ease-in-out infinite alternate;
+  }
+  @keyframes pillFlash {
+    from { box-shadow: 0 4px 24px rgba(192,57,43,0.3); }
+    to { box-shadow: 0 4px 40px rgba(192,57,43,0.7); }
+  }
+
+  /* Responsive — mobile: map on top, panel scrollable below */
+  @media (max-width: 700px) {
+    html, body { overflow: auto; height: auto; }
+    #app { display: flex; flex-direction: column; height: auto; min-height: 100vh; }
+    #topbar { flex-shrink: 0; }
+    #map-area { height: 45vh; min-height: 240px; flex-shrink: 0; order: 1; }
+    #sidebar { order: 2; overflow-y: visible; flex: 1; border-right: none; border-top: 1.5px solid var(--sand); }
+    .map-info-pill { font-size: 0.72rem; padding: 7px 14px; bottom: 10px; }
+    #chatMessages { max-height: 200px; }
+  }
+
+  /* Scrollbar styling */
+  #sidebar::-webkit-scrollbar { width: 4px; }
+  #sidebar::-webkit-scrollbar-thumb { background: var(--sand); border-radius: 4px; }
+  #chatMessages::-webkit-scrollbar { width: 3px; }
+  #chatMessages::-webkit-scrollbar-thumb { background: var(--sand); border-radius: 3px; }
+
+  /* Leaflet overrides */
+  .leaflet-container { font-family: 'DM Sans', sans-serif; }
+  .leaflet-popup-content-wrapper {
+    border-radius: 12px !important;
+    box-shadow: var(--shadow) !important;
+    border: 1.5px solid var(--sand);
+  }
+  .leaflet-popup-content { font-family: 'DM Sans', sans-serif; font-size: 0.84rem; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- TOPBAR -->
+  <header id="topbar">
+    <div class="logo">Way<span>Point</span></div>
+    <div class="topbar-status">
+      <div class="danger-banner" id="dangerBanner">⚠️ DANGER ZONE DETECTED</div>
+      <div class="pulse-dot" id="trackingDot"></div>
+      <span class="status-label" id="statusLabel">Locating…</span>
+    </div>
+  </header>
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <!-- Location Card -->
+    <div class="loc-card">
+      <div class="loc-label">📍 Current Location</div>
+      <div class="loc-name" id="locName">Detecting…</div>
+      <div class="loc-coords" id="locCoords">— , —</div>
+      <div class="loc-meta" id="locMeta">
+        <div class="loc-badge">🌡 Loading</div>
+        <div class="loc-badge">🕐 Local time</div>
+      </div>
+    </div>
+
+    <!-- Danger Alert -->
+    <div class="danger-alert" id="dangerAlert">
+      <div class="danger-alert-title">🚨 Safety Warning</div>
+      <div class="danger-alert-body" id="dangerAlertBody">You may be entering an area that requires caution. Stay aware of your surroundings and keep your belongings secure.</div>
+    </div>
+
+    <!-- Suggestions -->
+    <div class="section">
+      <div class="section-title">🗺 Nearby Suggestions</div>
+    </div>
+    <div class="suggestion-list" id="suggestionList">
+      <!-- Loading skeletons -->
+      <div class="sug-card loading">
+        <div class="sug-icon skeleton"></div>
+        <div class="sug-info">
+          <div class="sug-name skeleton"></div>
+          <div class="sug-desc skeleton"></div>
+          <div class="sug-dist skeleton"></div>
+        </div>
+      </div>
+      <div class="sug-card loading">
+        <div class="sug-icon skeleton"></div>
+        <div class="sug-info">
+          <div class="sug-name skeleton"></div>
+          <div class="sug-desc skeleton"></div>
+          <div class="sug-dist skeleton"></div>
+        </div>
+      </div>
+      <div class="sug-card loading">
+        <div class="sug-icon skeleton"></div>
+        <div class="sug-info">
+          <div class="sug-name skeleton"></div>
+          <div class="sug-desc skeleton"></div>
+          <div class="sug-dist skeleton"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Chat -->
+    <div class="section">
+      <div class="section-title">🤖 Ask WayPoint AI</div>
+    </div>
+    <div class="chat-section">
+      <div id="chatMessages">
+        <div class="chat-bubble ai">Hi! I'm your travel companion. Ask me anything about your surroundings, safety tips, or local recommendations! 🌍</div>
+      </div>
+    </div>
+    <div class="chat-input-row">
+      <input id="chatInput" type="text" placeholder="Ask about this area…" />
+      <button id="chatSend">➤</button>
+    </div>
+  </aside>
+
+  <!-- MAP -->
+  <div id="map-area">
+    <div id="map"></div>
+    <div class="map-overlay">
+      <button class="map-btn active" id="btnTrack" title="Re-center on location">🎯</button>
+      <button class="map-btn" id="btnSafety" title="Toggle safety zones">🛡</button>
+      <button class="map-btn" id="btnSatellite" title="Toggle satellite">🛰</button>
+    </div>
+    <div class="map-info-pill" id="mapPill">
+      <span>📡</span><span id="mapPillText">Acquiring GPS signal…</span>
+    </div>
+  </div>
+</div>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+let map, userMarker, accuracyCircle;
+let currentLat = null, currentLon = null;
+let showSafetyZones = false;
+let satelliteMode = false;
+let tileLayer, safetyLayerGroup;
+let userLocation = { city: 'Unknown', country: '' };
+let dangerZoneMarkers = [];
+
+// ============================================================
+//  MAP INIT
+// ============================================================
+function initMap() {
+  map = L.map('map', { zoomControl: false, attributionControl: false }).setView([20, 0], 2);
+
+  tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19
+  }).addTo(map);
+
+  L.control.zoom({ position: 'topright' }).addTo(map);
+
+  safetyLayerGroup = L.layerGroup().addTo(map);
+  startTracking();
+}
+
+// ============================================================
+//  LOCATION TRACKING
+// ============================================================
+function startTracking() {
+  if (!navigator.geolocation) {
+    handleGeoError({ message: 'Geolocation not supported' });
+    return;
+  }
+  navigator.geolocation.watchPosition(onPosition, handleGeoError, {
+    enableHighAccuracy: true,
+    maximumAge: 10000,
+    timeout: 15000
+  });
+}
+
+function onPosition(pos) {
+  const lat = pos.coords.latitude;
+  const lon = pos.coords.longitude;
+  const acc = pos.coords.accuracy;
+  currentLat = lat;
+  currentLon = lon;
+
+  updateMapMarker(lat, lon, acc);
+  updateStatusBar(lat, lon);
+  reverseGeocode(lat, lon);
+  checkDangerZones(lat, lon);
+  fetchSuggestions(lat, lon);
+}
+
+function handleGeoError(err) {
+  // Silently fall back to demo mode — no console noise
+  const lat = 48.8566, lon = 2.3522;
+  currentLat = lat; currentLon = lon;
+
+  let reason = 'Demo Mode';
+  if (err && err.code === 1) reason = 'Location Denied — Demo';
+  else if (err && err.code === 2) reason = 'Signal Lost — Demo';
+  else if (err && err.code === 3) reason = 'Timeout — Demo';
+
+  document.getElementById('statusLabel').textContent = reason;
+  document.getElementById('trackingDot').style.background = '#f39c12';
+  updateMapMarker(lat, lon, 80);
+  reverseGeocode(lat, lon);
+  fetchSuggestions(lat, lon);
+  map.setView([lat, lon], 14);
+  document.getElementById('mapPillText').textContent = '📍 Demo: Paris, France';
+}
+
+function updateMapMarker(lat, lon, acc) {
+  const pos = [lat, lon];
+
+  if (!userMarker) {
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:18px;height:18px;background:var(--moss);border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>`,
+      iconSize: [18, 18],
+      iconAnchor: [9, 9]
+    });
+    userMarker = L.marker(pos, { icon, zIndexOffset: 1000 }).addTo(map);
+    accuracyCircle = L.circle(pos, { radius: acc, color: '#2d5a4e', fillColor: '#2d5a4e', fillOpacity: 0.08, weight: 1 }).addTo(map);
+    map.setView(pos, 15);
+  } else {
+    userMarker.setLatLng(pos);
+    accuracyCircle.setLatLng(pos).setRadius(acc);
+  }
+}
+
+function updateStatusBar(lat, lon) {
+  document.getElementById('statusLabel').textContent = 'Tracking Active';
+  document.getElementById('locCoords').textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+}
+
+// ============================================================
+//  REVERSE GEOCODE
+// ============================================================
+async function reverseGeocode(lat, lon) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+    const data = await res.json();
+    const addr = data.address || {};
+    const city = addr.city || addr.town || addr.village || addr.county || 'Unknown';
+    const country = addr.country || '';
+    const road = addr.road || addr.neighbourhood || '';
+
+    userLocation = { city, country, road };
+
+    document.getElementById('locName').textContent = road ? `${road}, ${city}` : city;
+    document.getElementById('locCoords').textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('locMeta').innerHTML = `
+      <div class="loc-badge">📍 ${city}</div>
+      <div class="loc-badge">🌍 ${country}</div>
+      <div class="loc-badge">🕐 ${timeStr}</div>
+    `;
+    document.getElementById('mapPillText').textContent = `${road ? road + ', ' : ''}${city}`;
+  } catch (e) {
+    document.getElementById('locName').textContent = 'Location Detected';
+  }
+}
+
+// ============================================================
+//  DANGER ZONE CHECK
+// ============================================================
+// Simulated danger zones (in a real app, this would be a backend API)
+const SIMULATED_DANGER_ZONES = [
+  // These are example coordinates; in production use real crime/risk API
+  { lat: 48.8800, lon: 2.3460, radius: 600, name: 'High pickpocket area', level: 'medium' },
+  { lat: 48.8440, lon: 2.3730, radius: 400, name: 'Reported incidents zone', level: 'high' },
+];
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function checkDangerZones(lat, lon) {
+  let inDanger = false;
+  let dangerName = '';
+
+  for (const zone of SIMULATED_DANGER_ZONES) {
+    const dist = haversine(lat, lon, zone.lat, zone.lon);
+    if (dist < zone.radius) {
+      inDanger = true;
+      dangerName = zone.name;
+      break;
+    }
+  }
+
+  const dangerAlert = document.getElementById('dangerAlert');
+  const dangerBanner = document.getElementById('dangerBanner');
+  const mapPill = document.getElementById('mapPill');
+
+  if (inDanger) {
+    dangerAlert.classList.add('show');
+    dangerBanner.classList.add('show');
+    document.getElementById('dangerAlertBody').textContent =
+      `⚠️ You are near a "${dangerName}". Stay alert, keep valuables secured, and avoid isolated areas.`;
+    mapPill.classList.add('danger-mode');
+    document.getElementById('mapPillText').textContent = '⚠️ CAUTION: You are in a flagged area';
+  } else {
+    dangerAlert.classList.remove('show');
+    dangerBanner.classList.remove('show');
+    mapPill.classList.remove('danger-mode');
+  }
+}
+
+// ============================================================
+//  AI SUGGESTIONS via Claude API
+// ============================================================
+let lastSuggestLat = null, lastSuggestLon = null;
+let fetchDebounce = null;
+
+function fetchSuggestions(lat, lon) {
+  if (lastSuggestLat !== null) {
+    const dist = haversine(lat, lon, lastSuggestLat, lastSuggestLon);
+    if (dist < 200) return; // Don't re-fetch if we haven't moved 200m
+  }
+  clearTimeout(fetchDebounce);
+  fetchDebounce = setTimeout(() => doFetchSuggestions(lat, lon), 1200);
+}
+
+async function doFetchSuggestions(lat, lon) {
+  lastSuggestLat = lat; lastSuggestLon = lon;
+  showLoadingCards();
+
+  const city = userLocation.city || 'this location';
+  const country = userLocation.country || '';
+  const prompt = `You are a travel guide AI. The traveller is currently at coordinates (${lat.toFixed(4)}, ${lon.toFixed(4)}) near ${city}${country ? ', ' + country : ''}. Give them 5 nearby suggestions (mix of landmarks, restaurants, cultural spots, transport hubs) within ~1km. Return ONLY a JSON array, no markdown, no explanation. Each item: {"name":"...","type":"landmark|food|transport|safety","emoji":"...","distance":"...m or ...km","description":"1 sentence","rating":"4.2/5 or null"}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: 'Return only valid JSON arrays, no markdown fences, no extra text.',
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const raw = data.content?.find(b => b.type === 'text')?.text || '[]';
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    const items = JSON.parse(cleaned);
+    renderSuggestions(items, lat, lon);
+  } catch (e) {
+    renderFallbackSuggestions();
+  }
+}
+
+function showLoadingCards() {
+  const list = document.getElementById('suggestionList');
+  list.innerHTML = [1,2,3].map(() => `
+    <div class="sug-card loading">
+      <div class="sug-icon skeleton"></div>
+      <div class="sug-info">
+        <div class="sug-name skeleton" style="height:12px;width:65%;margin-bottom:6px;"></div>
+        <div class="sug-desc skeleton" style="height:10px;width:90%;margin-bottom:4px;"></div>
+        <div class="sug-dist skeleton" style="height:10px;width:40%;"></div>
+      </div>
+    </div>`).join('');
+}
+
+function renderSuggestions(items, lat, lon) {
+  const list = document.getElementById('suggestionList');
+  if (!items.length) { renderFallbackSuggestions(); return; }
+
+  // Clear old suggestion markers
+  if (window.sugMarkers) window.sugMarkers.forEach(m => map.removeLayer(m));
+  window.sugMarkers = [];
+
+  list.innerHTML = items.map((item, i) => `
+    <div class="sug-card" onclick="focusSuggestion(${i})" data-idx="${i}">
+      <div class="sug-icon ${item.type || 'landmark'}">${item.emoji || '📍'}</div>
+      <div class="sug-info">
+        <div class="sug-name">${item.name}</div>
+        <div class="sug-desc">${item.description}</div>
+        <div class="sug-dist">📏 ${item.distance}</div>
+        ${item.rating ? `<div class="sug-rating">⭐ ${item.rating}</div>` : ''}
+      </div>
+    </div>`).join('');
+
+  // Add map markers for suggestions (approximate positions)
+  items.forEach((item, i) => {
+    const angle = (i / items.length) * 2 * Math.PI;
+    const offsetLat = lat + (Math.random() * 0.004 - 0.002);
+    const offsetLon = lon + (Math.random() * 0.004 - 0.002);
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="background:white;border:2px solid #2d5a4e;border-radius:8px;padding:3px 7px;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,0.15);white-space:nowrap;">${item.emoji || '📍'}</div>`,
+      iconAnchor: [16, 16]
+    });
+    const marker = L.marker([offsetLat, offsetLon], { icon })
+      .addTo(map)
+      .bindPopup(`<strong>${item.name}</strong><br><small>${item.description}</small><br><small>📏 ${item.distance}${item.rating ? ' · ⭐ ' + item.rating : ''}</small>`);
+    window.sugMarkers = window.sugMarkers || [];
+    window.sugMarkers.push(marker);
+  });
+}
+
+window.focusSuggestion = function(idx) {
+  if (window.sugMarkers && window.sugMarkers[idx]) {
+    map.setView(window.sugMarkers[idx].getLatLng(), 16, { animate: true });
+    window.sugMarkers[idx].openPopup();
+  }
+};
+
+function renderFallbackSuggestions() {
+  const fallback = [
+    { name: 'Local Landmark', type: 'landmark', emoji: '🏛', distance: '~500m', description: 'A notable local point of interest worth visiting.', rating: null },
+    { name: 'Nearby Restaurant', type: 'food', emoji: '🍽', distance: '~200m', description: 'Popular local dining with highly rated cuisine.', rating: '4.3/5' },
+    { name: 'Transit Hub', type: 'transport', emoji: '🚇', distance: '~350m', description: 'Main transit connection for easy city navigation.', rating: null },
+  ];
+  renderSuggestions(fallback, currentLat || 0, currentLon || 0);
+}
+
+// ============================================================
+//  AI CHAT
+// ============================================================
+const chatHistory = [];
+
+document.getElementById('chatSend').addEventListener('click', sendChat);
+document.getElementById('chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  appendBubble(msg, 'user');
+  chatHistory.push({ role: 'user', content: msg });
+
+  const sendBtn = document.getElementById('chatSend');
+  sendBtn.disabled = true;
+  const typingEl = appendBubble('Thinking…', 'ai typing');
+
+  const city = userLocation.city || 'Unknown';
+  const country = userLocation.country || '';
+  const systemPrompt = `You are WayPoint, a friendly and knowledgeable travel companion AI. The traveller is currently near ${city}${country ? ', ' + country : ''} at coordinates (${(currentLat||0).toFixed(4)}, ${(currentLon||0).toFixed(4)}). Provide helpful, concise travel advice, safety tips, and local knowledge. Keep responses under 120 words and conversational.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: chatHistory
+      })
+    });
+    const data = await res.json();
+    const reply = data.content?.find(b => b.type === 'text')?.text || 'Sorry, I couldn\'t get a response right now.';
+    typingEl.remove();
+    const aiMsg = appendBubble(reply, 'ai');
+    chatHistory.push({ role: 'assistant', content: reply });
+  } catch (e) {
+    typingEl.textContent = 'Sorry, I couldn\'t connect right now. Please try again.';
+    typingEl.classList.remove('typing');
+  }
+
+  sendBtn.disabled = false;
+}
+
+function appendBubble(text, cls) {
+  const messages = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-bubble ' + cls;
+  div.textContent = text;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+  return div;
+}
+
+// ============================================================
+//  MAP CONTROLS
+// ============================================================
+document.getElementById('btnTrack').addEventListener('click', () => {
+  if (currentLat) map.setView([currentLat, currentLon], 15, { animate: true });
+});
+
+document.getElementById('btnSafety').addEventListener('click', () => {
+  showSafetyZones = !showSafetyZones;
+  document.getElementById('btnSafety').classList.toggle('active', showSafetyZones);
+  safetyLayerGroup.clearLayers();
+
+  if (showSafetyZones) {
+    SIMULATED_DANGER_ZONES.forEach(zone => {
+      L.circle([zone.lat, zone.lon], {
+        radius: zone.radius,
+        color: '#c0392b',
+        fillColor: '#e74c3c',
+        fillOpacity: 0.15,
+        weight: 2,
+        dashArray: '6 4'
+      }).addTo(safetyLayerGroup)
+        .bindPopup(`<strong>⚠️ ${zone.name}</strong><br><small>Risk level: ${zone.level}</small>`);
+    });
+  }
+});
+
+document.getElementById('btnSatellite').addEventListener('click', () => {
+  satelliteMode = !satelliteMode;
+  document.getElementById('btnSatellite').classList.toggle('active', satelliteMode);
+  map.removeLayer(tileLayer);
+
+  if (satelliteMode) {
+    tileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19
+    }).addTo(map);
+  } else {
+    tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
+    }).addTo(map);
+  }
+});
+
+// ============================================================
+//  BOOT
+// ============================================================
+initMap();
+</script>
+</body>
+</html>
